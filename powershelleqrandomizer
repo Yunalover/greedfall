@@ -1,0 +1,198 @@
+# Operator Database for Randomization
+$operatorDatabase = @{
+    "WEAPON_MAINHAND_DAMAGE_ELEM" = @{ Min = 1; Max = 360 }
+    "ITEM_TALENT_CHARISMA_ADD" = @{ Min = 1; Max = 2 }
+    "MAGIC_AID_LIFEADD" = @{ Min = 6; Max = 300 }
+    "MAGIC_EXPLOSION_DAMAGE" = @{ Min = 60; Max = 160 }
+    "TALENT_LOOT_BONUS" = @{ Min = 0.1; Max = 0.33 }
+    "ITEM_TALENT_ALCHEMY_ADD" = @{ Min = 1; Max = 2 }
+    "WEAPON_LIFEREGEN" = @{ Min = 1; Max = 26 }
+    "WEAPON_OFFHAND_DAMAGE_ELEM" = @{ Min = 1; Max = 400 }
+    "TALENT_RECYCLE_BONUS" = @{ Min = 0.04; Max = 0.08 }
+    "WEAPON_MAINHAND_AUTOPOISON_LEVEL" = @{ Min = 0.25; Max = 0.50 }
+    "ITEM_TALENT_INTUITION_ADD" = @{ Min = 1; Max = 2 }
+    "WEAPON_MAINHAND_CRITIC" = @{ Min = 9; Max = 15 }
+    "ITEM_TALENT_CRAFT_ADD" = @{ Min = 1; Max = 2 }
+    "DEFENSE_ARMOR_PHY_MAX" = @{ Min = 9; Max = 38 }
+    "POISON_ADD_PER_HIT" = @{ Min = 90; Max = 266 }
+    "WEAPON_MANAREGEN" = @{ Min = 10; Max = 25 }
+    "MAGIC_PROTECT_ARMORPHYREGEN_PERSEC" = @{ Min = 3; Max = 7 }
+    "DEFENSE_ARMOR_ELEM_MAX" = @{ Min = 0.02; Max = 0.4 }
+    "MAGIC_STASIS_DURATION" = @{ Min = 120; Max = 240 }
+    "DEFENSE_ARMOR_MAGIC_MAX" = @{ Min = 0.02; Max = 0.5 }
+    "DEFENSE_ARMOR_RECOVERY" = @{ Min = 1; Max = 2 }
+    "INTERRUPT_MAX" = @{ Min = 23; Max = 60 }
+}
+
+# Function to round the value to two decimal places
+function RoundToTwoDecimalPlaces($value) {
+    [math]::Round($value, 2)
+}
+
+# Function to add a random operator to the operations node
+function AddRandomOperator($operationsNode, $excludeOperators) {
+    $randomOperatorType = $operatorDatabase.Keys | Get-Random
+
+    # Exclude operators that should not be repeated
+    $excludeOperators += "EQUIPEMENT_QUALITY"
+
+    # Check if the random operator is excluded or already exists in the operations node
+    while ($excludeOperators -contains $randomOperatorType -or $operationsNode.SelectSingleNode("addBonus[@type='$randomOperatorType']")) {
+        $randomOperatorType = $operatorDatabase.Keys | Get-Random
+    }
+
+    $minValue = $operatorDatabase[$randomOperatorType].Min
+    $maxValue = $operatorDatabase[$randomOperatorType].Max
+
+    # Generate a random value within the valid range
+    $randomOperatorValue = Get-Random -Minimum $minValue -Maximum $maxValue
+    $randomOperatorValue = RoundToTwoDecimalPlaces $randomOperatorValue
+
+    # Add the random operator to the operations node
+    $randomOperator = $operationsNode.AppendChild($xml.CreateElement("addBonus"))
+    $randomOperator.SetAttribute("operator", "ADD_PREMULT")
+    $randomOperator.SetAttribute("type", $randomOperatorType)
+    $randomOperator.SetAttribute("value", $randomOperatorValue)
+
+    # Display the added random operator
+    Write-Host "Added random operator: $randomOperatorType = $randomOperatorValue"
+}
+
+# Function to parse and update operations node against the paradigm
+function ParseAndUpdateOperations($operationsNode, $existingOperators) {
+    # Operators that should not be removed if already exists
+    $operatorsToKeep = @(
+        "EQUIPEMENT_QUALITY",
+        "WEAPON_MAINHAND_DAMAGE",
+        "WEAPON_MAINHAND_INTERRUPT",
+        "WEAPON_MAINHAND_DESTROY",
+        "WEAPON_MAINHAND_CRITIC",
+        "WEAPON_MAINHAND_RECOVERY",
+        "WEAPON_MAINHAND_RANGE",
+        "WEAPON_MAINHAND_VISIBILITY",
+        "WEAPON_MAINHAND_SPEEDFACTOR",
+        "WEAPON_MAINHAND_ACCELERATIONFACTOR",
+        "ATT_MAINWEAPON_SPECIAL_ADRENALINECOST",
+        "WEAPON_MAINHAND_DAMAGE_MAGIC",
+        "WEAPON_MAINHAND_MANACOST"
+    )
+
+    # Remove existing operators that are not in the operatorsToKeep list
+    foreach ($operator in $existingOperators) {
+        $type = $operator.GetAttribute("type")
+        if ($type -notin $operatorsToKeep) {
+            $operationsNode.RemoveChild($operator)
+        }
+    }
+
+    # Add missing operators from the operatorsToKeep list
+    foreach ($operatorType in $operatorsToKeep) {
+        if (!$operationsNode.SelectSingleNode("addBonus[@type='$operatorType']")) {
+            AddRandomOperator $operationsNode @()
+        }
+    }
+}
+
+# Load the XML file
+$xmlFilePath = "C:\Users\YUNA\Desktop\GAMES\RANDO GREEDFALL\EQUIPMENT SLI.xml"
+$xml = New-Object System.Xml.XmlDocument
+$xml.Load($xmlFilePath)
+
+# Find and parse all weapon nodes
+$weapons = $xml.SelectNodes("//weapon")
+
+# Find and parse all equipment nodes with specified conditions
+$equipmentWithSkilltree = $xml.SelectNodes("//merge[not(@skilltreeRequired) and (@inheritFrom='armor_cape_base' or @inheritFrom='armor_necklace_base')]")
+$equipmentOthers = $xml.SelectNodes("//merge[not(@skilltreeRequired) and not(@inheritFrom='armor_cape_base' or @inheritFrom='armor_necklace_base')]")
+
+# Counter for total equipment edits
+$totalEdits = 0
+
+# Process weapons with skilltree
+foreach ($weapon in $weapons) {
+    $skilltreeRequired = $weapon.GetAttribute("skilltreeRequired")
+    
+    if ($skilltreeRequired -ne "") {
+        $operationsNode = $weapon.SelectSingleNode("eventEffectSets/eventEffectSet/effects/changeAttributes/operations")
+        
+        # Get the existing operators in the operations node
+        $existingOperators = $operationsNode.SelectNodes("addBonus")
+        
+        # Parse and update operations node based on the existing operators
+        ParseAndUpdateOperations $operationsNode $existingOperators
+        
+        # Add the comment line
+        $comment = $xml.CreateComment("######## RANDOMIZATION ########")
+        $operationsNode.PrependChild($comment)
+        
+        # Add 2 random operators excluding EQUIPEMENT_QUALITY
+        for ($i = $existingOperators.Count; $i -lt 2; $i++) {
+            AddRandomOperator $operationsNode @("EQUIPEMENT_QUALITY")
+        }
+        
+        # Update the total edits count
+        $totalEdits += ($operationsNode.ChildNodes.Count - $existingOperators.Count)
+    }
+}
+
+# Process equipment with specified conditions
+foreach ($equipment in $equipmentWithSkilltree) {
+    $operationsNode = $equipment.SelectSingleNode("eventEffectSets/eventEffectSet/effects/changeAttributes/operations")
+    
+    # Remove existing operators except EQUIPEMENT_QUALITY
+    $existingOperators = $operationsNode.SelectNodes("addBonus")
+    foreach ($operator in $existingOperators) {
+        $type = $operator.GetAttribute("type")
+        if ($type -ne "EQUIPEMENT_QUALITY") {
+            $operationsNode.RemoveChild($operator)
+        }
+    }
+    
+    # Add the comment line
+    $comment = $xml.CreateComment("######## RANDOMIZATION ########")
+    $operationsNode.PrependChild($comment)
+    
+    # Add 5 random operators
+    for ($i = 0; $i -lt 5; $i++) {
+        AddRandomOperator $operationsNode @()
+    }
+    
+    # Update the total edits count
+    $totalEdits += 5
+}
+
+# Process other equipment
+foreach ($equipment in $equipmentOthers) {
+    $operationsNode = $equipment.SelectSingleNode("eventEffectSets/eventEffectSet/effects/changeAttributes/operations")
+    
+    # Get the existing operators in the operations node
+    $existingOperators = $operationsNode.SelectNodes("addBonus")
+    
+    # Parse and update operations node based on the existing operators
+    ParseAndUpdateOperations $operationsNode $existingOperators
+    
+    # Add the comment line
+    $comment = $xml.CreateComment("######## RANDOMIZATION ########")
+    $operationsNode.PrependChild($comment)
+    
+    # Add 2 random operators including EQUIPEMENT_QUALITY
+    for ($i = $existingOperators.Count; $i -lt 2; $i++) {
+        AddRandomOperator $operationsNode @("EQUIPEMENT_QUALITY")
+    }
+    
+    # Update the total edits count
+    $totalEdits += ($operationsNode.ChildNodes.Count - $existingOperators.Count)
+}
+
+# Save the modified XML file
+$modifiedFilePath = "C:\Users\YUNA\Desktop\GAMES\RANDO GREEDFALL\EQUIPMENT SLIRANDOM.xml"
+$xml.Save($modifiedFilePath)
+Write-Host "XML file modified successfully!"
+Write-Host "Modified file saved at: $modifiedFilePath"
+
+# Display the total equipment edits
+if ($totalEdits -gt 0) {
+    Write-Host "Total Equipment Edits: $totalEdits"
+} else {
+    Write-Host "No equipment edits were made."
+}
