@@ -1,198 +1,145 @@
-# Operator Database for Randomization
-$operatorDatabase = @{
-    "WEAPON_MAINHAND_DAMAGE_ELEM" = @{ Min = 1; Max = 360 }
-    "ITEM_TALENT_CHARISMA_ADD" = @{ Min = 1; Max = 2 }
-    "MAGIC_AID_LIFEADD" = @{ Min = 6; Max = 300 }
-    "MAGIC_EXPLOSION_DAMAGE" = @{ Min = 60; Max = 160 }
-    "TALENT_LOOT_BONUS" = @{ Min = 0.1; Max = 0.33 }
-    "ITEM_TALENT_ALCHEMY_ADD" = @{ Min = 1; Max = 2 }
-    "WEAPON_LIFEREGEN" = @{ Min = 1; Max = 26 }
-    "WEAPON_OFFHAND_DAMAGE_ELEM" = @{ Min = 1; Max = 400 }
-    "TALENT_RECYCLE_BONUS" = @{ Min = 0.04; Max = 0.08 }
-    "WEAPON_MAINHAND_AUTOPOISON_LEVEL" = @{ Min = 0.25; Max = 0.50 }
-    "ITEM_TALENT_INTUITION_ADD" = @{ Min = 1; Max = 2 }
-    "WEAPON_MAINHAND_CRITIC" = @{ Min = 9; Max = 15 }
-    "ITEM_TALENT_CRAFT_ADD" = @{ Min = 1; Max = 2 }
-    "DEFENSE_ARMOR_PHY_MAX" = @{ Min = 9; Max = 38 }
-    "POISON_ADD_PER_HIT" = @{ Min = 90; Max = 266 }
-    "WEAPON_MANAREGEN" = @{ Min = 10; Max = 25 }
-    "MAGIC_PROTECT_ARMORPHYREGEN_PERSEC" = @{ Min = 3; Max = 7 }
-    "DEFENSE_ARMOR_ELEM_MAX" = @{ Min = 0.02; Max = 0.4 }
-    "MAGIC_STASIS_DURATION" = @{ Min = 120; Max = 240 }
-    "DEFENSE_ARMOR_MAGIC_MAX" = @{ Min = 0.02; Max = 0.5 }
-    "DEFENSE_ARMOR_RECOVERY" = @{ Min = 1; Max = 2 }
-    "INTERRUPT_MAX" = @{ Min = 23; Max = 60 }
-}
-
-# Function to round the value to two decimal places
-function RoundToTwoDecimalPlaces($value) {
-    [math]::Round($value, 2)
-}
-
-# Function to add a random operator to the operations node
-function AddRandomOperator($operationsNode, $excludeOperators) {
-    $randomOperatorType = $operatorDatabase.Keys | Get-Random
-
-    # Exclude operators that should not be repeated
-    $excludeOperators += "EQUIPEMENT_QUALITY"
-
-    # Check if the random operator is excluded or already exists in the operations node
-    while ($excludeOperators -contains $randomOperatorType -or $operationsNode.SelectSingleNode("addBonus[@type='$randomOperatorType']")) {
-        $randomOperatorType = $operatorDatabase.Keys | Get-Random
-    }
-
-    $minValue = $operatorDatabase[$randomOperatorType].Min
-    $maxValue = $operatorDatabase[$randomOperatorType].Max
-
-    # Generate a random value within the valid range
-    $randomOperatorValue = Get-Random -Minimum $minValue -Maximum $maxValue
-    $randomOperatorValue = RoundToTwoDecimalPlaces $randomOperatorValue
-
-    # Add the random operator to the operations node
-    $randomOperator = $operationsNode.AppendChild($xml.CreateElement("addBonus"))
-    $randomOperator.SetAttribute("operator", "ADD_PREMULT")
-    $randomOperator.SetAttribute("type", $randomOperatorType)
-    $randomOperator.SetAttribute("value", $randomOperatorValue)
-
-    # Display the added random operator
-    Write-Host "Added random operator: $randomOperatorType = $randomOperatorValue"
-}
-
-# Function to parse and update operations node against the paradigm
-function ParseAndUpdateOperations($operationsNode, $existingOperators) {
-    # Operators that should not be removed if already exists
-    $operatorsToKeep = @(
-        "EQUIPEMENT_QUALITY",
-        "WEAPON_MAINHAND_DAMAGE",
-        "WEAPON_MAINHAND_INTERRUPT",
-        "WEAPON_MAINHAND_DESTROY",
-        "WEAPON_MAINHAND_CRITIC",
-        "WEAPON_MAINHAND_RECOVERY",
-        "WEAPON_MAINHAND_RANGE",
-        "WEAPON_MAINHAND_VISIBILITY",
-        "WEAPON_MAINHAND_SPEEDFACTOR",
-        "WEAPON_MAINHAND_ACCELERATIONFACTOR",
-        "ATT_MAINWEAPON_SPECIAL_ADRENALINECOST",
-        "WEAPON_MAINHAND_DAMAGE_MAGIC",
-        "WEAPON_MAINHAND_MANACOST"
-    )
-
-    # Remove existing operators that are not in the operatorsToKeep list
-    foreach ($operator in $existingOperators) {
-        $type = $operator.GetAttribute("type")
-        if ($type -notin $operatorsToKeep) {
-            $operationsNode.RemoveChild($operator)
-        }
-    }
-
-    # Add missing operators from the operatorsToKeep list
-    foreach ($operatorType in $operatorsToKeep) {
-        if (!$operationsNode.SelectSingleNode("addBonus[@type='$operatorType']")) {
-            AddRandomOperator $operationsNode @()
-        }
-    }
-}
+#CREDITS TO MAXIMUSPLUS (discord maximusplus) denimvalas@gmail.com
+#enjoy!
 
 # Load the XML file
-$xmlFilePath = "C:\Users\YUNA\Desktop\GAMES\RANDO GREEDFALL\EQUIPMENT SLI.xml"
+$xmlFilePath = "C:\Users\YUNA\Desktop\GAMES\RANDO GREEDFALL\items_autogen_equipements.sli"
 $xml = New-Object System.Xml.XmlDocument
 $xml.Load($xmlFilePath)
 
-# Find and parse all weapon nodes
-$weapons = $xml.SelectNodes("//weapon")
+$operatorDatabase = @{
+   	"WEAPON_MAINHAND_DAMAGE_ELEM" = @{ Min = 1; Max = 360; ValueType = "Flat" }
+   	"ITEM_TALENT_CHARISMA_ADD" = @{ Min = 1; Max = 2; ValueType = "Flat" }
+   	"MAGIC_AID_LIFEADD" = @{ Min = 50; Max = 300; ValueType = "Flat" }
+  	"MAGIC_EXPLOSION_DAMAGE" = @{ Min = 60; Max = 160; ValueType = "Flat" }
+	"ITEM_TALENT_ALCHEMY_ADD" = @{ Min = 1; Max = 2; ValueType = "Flat" }
+	"WEAPON_LIFEREGEN" = @{ Min = 1; Max = 26; ValueType = "Flat" }
+	"WEAPON_OFFHAND_DAMAGE_ELEM" = @{ Min = 1; Max = 400; ValueType = "Flat" }
+	"WEAPON_MAINHAND_AUTOPOISON_LEVEL" = @{ Min = 0.15; Max = 0.50; ValueType = "Structured" }
+	"ITEM_TALENT_INTUITION_ADD" = @{ Min = 1; Max = 2; ValueType = "Flat" }
+	"ITEM_TALENT_CRAFT_ADD" = @{ Min = 1; Max = 2; ValueType = "Flat" }
+	"DEFENSE_ARMOR_PHY_MAX" = @{ Min = 12; Max = 128; ValueType = "Flat" }
+	"POISON_ADD_PER_HIT" = @{ Min = 90; Max = 266; ValueType = "Flat" }
+	"WEAPON_MANAREGEN" = @{ Min = 1; Max = 25; ValueType = "Flat" }
+	"MAGIC_PROTECT_ARMORPHYREGEN_PERSEC" = @{ Min = 3; Max = 7; ValueType = "Flat" }
+	"DEFENSE_ARMOR_ELEM_MAX" = @{ Min = 0.01; Max = 0.26; ValueType ="Structured"}
+	"MAGIC_STASIS_DURATION" = @{ Min = 120; Max = 240; ValueType = "Flat" }
+	"DEFENSE_ARMOR_MAGIC_MAX" = @{ Min = 0.01; Max = 0.26; ValueType = "Structured" }
+ 	"WEAPON_OFFHAND_INTERRUPT" = @{ Min = 26; Max = 126; ValueType = "Flat" }
+	"WEAPON_OFFHAND_DESTROY" = @{ Min = 26; Max = 126; ValueType = "Flat" }
+	"WEAPON_MAINHAND_DESTROY" = @{ Min = 26; Max = 126; ValueType = "Flat" }
+	"WEAPON_MAINHAND_INTERRUPT" = @{ Min = 26; Max = 126; ValueType = "Flat" }
+	"INTERRUPT_MAX" = @{ Min = 26; Max = 126; ValueType = "Flat" }
+	"ITEM_TALENT_VIGOR_ADD" = @{ Min = 1; Max = 2; ValueType = "Flat" }
+}
 
-# Find and parse all equipment nodes with specified conditions
-$equipmentWithSkilltree = $xml.SelectNodes("//merge[not(@skilltreeRequired) and (@inheritFrom='armor_cape_base' or @inheritFrom='armor_necklace_base')]")
-$equipmentOthers = $xml.SelectNodes("//merge[not(@skilltreeRequired) and not(@inheritFrom='armor_cape_base' or @inheritFrom='armor_necklace_base')]")
 
-# Counter for total equipment edits
-$totalEdits = 0
+function RoundToTwoDecimalPlaces($value) {
+    $roundedValue = [math]::Round($value, 2)
+    return $roundedValue
+}
 
-# Process weapons with skilltree
-foreach ($weapon in $weapons) {
-    $skilltreeRequired = $weapon.GetAttribute("skilltreeRequired")
-    
-    if ($skilltreeRequired -ne "") {
-        $operationsNode = $weapon.SelectSingleNode("eventEffectSets/eventEffectSet/effects/changeAttributes/operations")
-        
-        # Get the existing operators in the operations node
-        $existingOperators = $operationsNode.SelectNodes("addBonus")
-        
-        # Parse and update operations node based on the existing operators
-        ParseAndUpdateOperations $operationsNode $existingOperators
-        
-        # Add the comment line
-        $comment = $xml.CreateComment("######## RANDOMIZATION ########")
-        $operationsNode.PrependChild($comment)
-        
-        # Add 2 random operators excluding EQUIPEMENT_QUALITY
-        for ($i = $existingOperators.Count; $i -lt 2; $i++) {
-            AddRandomOperator $operationsNode @("EQUIPEMENT_QUALITY")
+
+function ApplyScaling($value, $equipmentQuality, $valueType) {
+    if ($equipmentQuality -lt 1) {
+        $equipmentQuality = 1
+    } elseif ($equipmentQuality -gt 100) {
+        $equipmentQuality = 100
+    }
+
+    $scaledValue = $value  # Initialize the scaled value
+
+    if ($valueType -eq "Flat") {
+        $scalingFactor = ($equipmentQuality - 1) / 99  # Calculate the scaling factor based on equipment quality
+        $scaledValue = $scaledValue + ($scaledValue * $scalingFactor)
+
+        # Ensure the scaled value is within the specified range
+        $minValue = $operatorDatabase[$operator].Min
+        $maxValue = $operatorDatabase[$operator].Max
+        $scaledValue = [math]::Max($minValue, [math]::Min($maxValue, $scaledValue))
+
+        # Round to full number
+        $scaledValue = [math]::Round($scaledValue)
+    } elseif ($valueType -eq "Structured") {
+        if ($value -eq 0.01) {
+            $scaledValue = $value * $equipmentQuality
+        } elseif ($value -eq 0.1) {
+            $scaledValue = $value * $equipmentQuality
+        } elseif ($value -eq 0.4) {
+            $scaledValue = $value * $equipmentQuality
+        } else {
+            $minValue = $value * ($equipmentQuality / 100)
+            $maxValue = $value
+            $minVariance = $minValue + ($maxValue - $minValue) * 0.15  # Define the variance as 15% of the value range
+            $scaledValue = Get-Random -Minimum $minVariance -Maximum $maxValue
         }
-        
-        # Update the total edits count
-        $totalEdits += ($operationsNode.ChildNodes.Count - $existingOperators.Count)
+    }
+
+    return RoundToTwoDecimalPlaces $scaledValue
+}
+
+
+
+
+
+function AddRandomOperator($operationsNode, $usedOperators, $equipmentQuality) {
+    $operator = $operatorDatabase.Keys | Get-Random
+    if ($usedOperators.Contains($operator)) {
+        return
+    }
+
+    $usedOperators.Add($operator) > $null
+
+    $operatorData = $operatorDatabase[$operator]
+    $value = Get-Random -Minimum $operatorData.Min -Maximum ($operatorData.Max + 1)
+    $scaledValue = ApplyScaling $value $equipmentQuality $operatorData.ValueType
+
+    # Log the operator and its scaled value
+    Write-Host "Operator: $operator"
+    Write-Host "Scaled Value: $scaledValue"
+
+    # Create a new operator node
+    $operatorNode = $xml.CreateElement("operator")
+    $operatorNode.SetAttribute("type", $operator)
+    $operatorNode.SetAttribute("value", $scaledValue)
+
+    # Add the operator node to the operations node
+    $operationsNode.AppendChild($operatorNode) > $null
+
+    # Log the edit made to the file
+    Write-Host "Operator added: $operator - Value: $scaledValue"
+}
+
+
+
+
+
+# Find all the operations nodes
+$operationsNodes = $xml.SelectNodes("//operations")
+
+foreach ($operationsNode in $operationsNodes) {
+    # Initialize the set of used operators for this node
+    $usedOperators = New-Object System.Collections.Generic.HashSet[string]
+
+    # Add existing operators to the used operators
+    foreach ($operator in $operationsNode.ChildNodes) {
+        $usedOperators.Add($operator.GetAttribute("type")) > $null
+    }
+
+    # Get the equipment's quality level
+    $equipmentQuality = $operationsNode.GetAttribute("EQUIPEMENT_QUALITY")
+    if ([string]::IsNullOrEmpty($equipmentQuality)) {
+        $equipmentQuality = 10  # Default quality level when attribute is not found
+    }
+
+    # Add 4 random operators to the current operations node
+    for ($i = 0; $i -lt 4; $i++) {
+        AddRandomOperator $operationsNode $usedOperators $equipmentQuality
     }
 }
 
-# Process equipment with specified conditions
-foreach ($equipment in $equipmentWithSkilltree) {
-    $operationsNode = $equipment.SelectSingleNode("eventEffectSets/eventEffectSet/effects/changeAttributes/operations")
-    
-    # Remove existing operators except EQUIPEMENT_QUALITY
-    $existingOperators = $operationsNode.SelectNodes("addBonus")
-    foreach ($operator in $existingOperators) {
-        $type = $operator.GetAttribute("type")
-        if ($type -ne "EQUIPEMENT_QUALITY") {
-            $operationsNode.RemoveChild($operator)
-        }
-    }
-    
-    # Add the comment line
-    $comment = $xml.CreateComment("######## RANDOMIZATION ########")
-    $operationsNode.PrependChild($comment)
-    
-    # Add 5 random operators
-    for ($i = 0; $i -lt 5; $i++) {
-        AddRandomOperator $operationsNode @()
-    }
-    
-    # Update the total edits count
-    $totalEdits += 5
-}
-
-# Process other equipment
-foreach ($equipment in $equipmentOthers) {
-    $operationsNode = $equipment.SelectSingleNode("eventEffectSets/eventEffectSet/effects/changeAttributes/operations")
-    
-    # Get the existing operators in the operations node
-    $existingOperators = $operationsNode.SelectNodes("addBonus")
-    
-    # Parse and update operations node based on the existing operators
-    ParseAndUpdateOperations $operationsNode $existingOperators
-    
-    # Add the comment line
-    $comment = $xml.CreateComment("######## RANDOMIZATION ########")
-    $operationsNode.PrependChild($comment)
-    
-    # Add 2 random operators including EQUIPEMENT_QUALITY
-    for ($i = $existingOperators.Count; $i -lt 2; $i++) {
-        AddRandomOperator $operationsNode @("EQUIPEMENT_QUALITY")
-    }
-    
-    # Update the total edits count
-    $totalEdits += ($operationsNode.ChildNodes.Count - $existingOperators.Count)
-}
 
 # Save the modified XML file
-$modifiedFilePath = "C:\Users\YUNA\Desktop\GAMES\RANDO GREEDFALL\EQUIPMENT SLIRANDOM.xml"
+$modifiedFilePath = "Q:\SteamLibrary\steamapps\common\GreedFall\datalocal\items\items_autogen\items_autogen_equipements.sli"
 $xml.Save($modifiedFilePath)
 Write-Host "XML file modified successfully!"
 Write-Host "Modified file saved at: $modifiedFilePath"
-
-# Display the total equipment edits
-if ($totalEdits -gt 0) {
-    Write-Host "Total Equipment Edits: $totalEdits"
-} else {
-    Write-Host "No equipment edits were made."
-}
